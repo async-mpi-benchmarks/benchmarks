@@ -1,7 +1,7 @@
 /*
 
 - this is a simple example in MPI
-- process 1 send to each processes a vecto and return it 
+- process 0 send to each processes a vecto and return it 
 
 */
 
@@ -39,8 +39,6 @@ int main(int argc, char** argv){
 	if (world_rank == 0){
 		printf("\nSending array values to processes in a sync way ..\n\n") ; 
 		
-		
-	
 		// send value to every other processes
 		// in a sync way
 		for (int i = 1 ; i < world_size ; i++){
@@ -52,7 +50,7 @@ int main(int argc, char** argv){
 			MPI_Recv(array, size_array , MPI_FLOAT , i ,i , MPI_COMM_WORLD, MPI_STATUS_IGNORE) ; 
 			int is_ok = 1 ; 
 			for (int j = 0 ; j < size_array ; j++){
-				if (array[j] != (float)j){
+				if (array[j] != (i + 1) * (float)j){
 					is_ok = 0 ; 
 				}
 			}
@@ -67,6 +65,9 @@ int main(int argc, char** argv){
 	else if (world_rank < world_size){
 	
 		MPI_Recv(array , size_array , MPI_FLOAT , 0 , world_rank , MPI_COMM_WORLD , MPI_STATUS_IGNORE ) ; 
+		for (int i = 0 ; i < size_array ; i++){
+			array[i] = (world_rank + 1) * array[i] ; 
+		}
 		MPI_Send(array , size_array , MPI_FLOAT , 0 , world_rank , MPI_COMM_WORLD ) ;	
 
 	}	
@@ -103,7 +104,7 @@ int main(int argc, char** argv){
 			MPI_Recv(array, size_array , MPI_FLOAT , i ,i , MPI_COMM_WORLD, MPI_STATUS_IGNORE) ; 
 			int is_ok = 1 ; 
 			for (int j = 0 ; j < size_array ; j++){
-				if (array[j] != (float)j){
+				if (array[j] != (i + 1) * (float)j){
 					is_ok = 0 ; 
 				}
 			}
@@ -119,6 +120,9 @@ int main(int argc, char** argv){
 	
 		MPI_Irecv(array , size_array , MPI_FLOAT , 0 , world_rank , MPI_COMM_WORLD , &request ) ; 
 		MPI_Wait(&request , &status) ; 
+		for (int i = 0 ; i < size_array ; i++){
+			array[i] = (world_rank +1) * array[i] ; 
+		}
 		MPI_Isend(array , size_array , MPI_FLOAT , 0 , world_rank , MPI_COMM_WORLD, &request ) ;	
 	}		
 	
