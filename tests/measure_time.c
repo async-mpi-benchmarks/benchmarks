@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <mpi.h>
-#include  <unistd.h>
+
 
 typedef unsigned long long uint64_t ; 
 
