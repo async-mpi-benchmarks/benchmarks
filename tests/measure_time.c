@@ -11,38 +11,85 @@
 #include <mpi.h>
 #include  <unistd.h>
 
-// https://gist.github.com/savanovich/f07eda9dba9300eb9ccf
+typedef unsigned long long uint64_t ; 
 
+
+// rdtscp are from : 
+// https://gist.github.com/savanovich/f07eda9dba9300eb9ccf
 // rdtscp_before
 inline
-unsigned long long sync_rdtscp_b(void)
+uint64_t sync_rdtscp_b(void)
 {
-	unsigned a, d; 
+	uint64_t a, d; 
 	asm volatile("cpuid" ::: "%rax", "%rbx", "%rcx", "%rdx");
 	asm volatile("rdtsc" : "=a" (a), "=d" (d)); 
-	return ((unsigned long)a) | (((unsigned long)d) << 32); 
+	return ((uint64_t)a) | (((uint64_t)d) << 32); 
 }
 
 // rdtscp after
 inline
-unsigned long long sync_rdtscp_a(void)
+uint64_t sync_rdtscp_a(void)
 {
-	unsigned a, d; 
+	uint64_t a, d; 
 	asm volatile("rdtscp" : "=a" (a), "=d" (d)); 
 	asm volatile("cpuid" ::: "%rax", "%rbx", "%rcx", "%rdx");
-	return ((unsigned long)a) | (((unsigned long)d) << 32); 
+	return ((uint64_t)a) | (((uint64_t)d) << 32); 
 }
 
 
 inline
-unsigned long long rdtsc(void)
+uint64_t rdtsc(void)
 {
-  unsigned long long a, d;
+  uint64_t a, d;
  
   __asm__ volatile ("rdtsc" : "=a" (a), "=d" (d));
   
   return (d << 32) | a;
 }
+
+
+
+void measure_time(uint64_t nn , uint64_t *time_rdtsc, uint64_t *time_sync_rdtscp){
+
+		double inc = 0.0 ;		
+		uint64_t start ; 
+		uint64_t end ; 
+		for (uint64_t i = 0 ; i < nn ; i++){
+			inc = inc + 1.; 
+		}
+		start = rdtsc() ; 
+		for (uint64_t i = 0 ; i < nn ; i++){
+			inc = inc + 1.; 
+		}
+		end = rdtsc() ; 
+		(*time_rdtsc) = end - start ; 		
+		printf("     rdtsc timer : %llu %f\n", (*time_rdtsc), inc);
+		inc = 0.0 ; 			
+		start = sync_rdtscp_b() ; 		
+		for (uint64_t i = 0 ; i < nn ; i++){
+			inc = inc + 1.; 
+		}
+		end = sync_rdtscp_a() ; 
+		(*time_sync_rdtscp) = end - start ;
+		for (uint64_t i = 0 ; i < nn ; i++){
+			inc = inc + 1.; 
+		}		
+		printf("     rdtsc timer : %llu %f\n", (*time_rdtsc), inc);		
+		printf("sync rdtsc timer : %llu %f\n", (*time_sync_rdtscp), inc);		
+
+}
+
+void treatment(uint64_t *rdtsc_mean, uint64_t *rdtsc_min, uint64_t *rdtsc_max, uint64_t *tmp, int world_size){
+	(*rdtsc_mean) += (*tmp)/(world_size - 1) ; 
+	if ((*tmp) < (*rdtsc_min)){
+		(*rdtsc_min) = (*tmp) ; 
+	}
+	if ((*tmp) > (*rdtsc_max)){
+		(*rdtsc_max) = (*tmp) ; 
+	}
+
+}
+
 
 int main(int argc, char** argv){
 
@@ -54,120 +101,88 @@ int main(int argc, char** argv){
 	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 	
 	double inc = 0.0 ;
-	unsigned long long nn = 40000;  	
+	uint64_t max_iter = 600; 
+	uint64_t nn ;  	
 
-	if (argc==2){
-		char *tmpstring ; 
-		nn = strtoul(argv[1], &tmpstring, 10);
-	}	
+	//if (argc==2){
+	//	char *tmpstring ; 
+	//	nn = strtoul(argv[1], &tmpstring, 10);
+	//}	
 	
-	unsigned long long start ; 
-	unsigned long long end ; 
+	uint64_t start ; 
+	uint64_t end ; 
 	
 	
-	unsigned long long time_rdtsc ; 
-	unsigned long long time_sync_rdtscp ; 
-	unsigned long long time_rdtsc_in ;
-	unsigned long long time_sync_rdtscp_in ; 
+	uint64_t time_rdtsc ; 
+	uint64_t time_sync_rdtscp ; 
+
 	
 
 	
 	if (world_rank !=0 && world_rank < world_size)
-	{
-	
-		for (unsigned long long i = 0 ; i <  nn ; i++){
-			inc = inc + 1.; 
-		}
-		inc = 0.0 ; 
-		start = rdtsc() ; 
-		for (unsigned long long i = 0 ; i < nn ; i++){
-			inc = inc + 1.; 
-		}
-		end = rdtsc() ; 
-		time_rdtsc = end - start ; 
-		printf("     rdtsc timer : %llu with value %f\n", time_rdtsc, inc);
-		
-		inc = 0.0 ; 		
-		start = sync_rdtscp_b() ; 		
-		for (unsigned long long i = 0 ; i < nn ; i++){
-			inc = inc + 1.; 
-		}
-		end = sync_rdtscp_a() ; 
-		time_sync_rdtscp = end - start ; 
-		printf("sync rdtsc timer : %llu with value %f\n", time_sync_rdtscp, inc);	
-		
-		for (unsigned long long i = 0 ; i <  nn ; i++){
-			inc = inc + 1.; 
-		}	
-		
-		MPI_Send(&time_rdtsc, 1, MPI_UNSIGNED_LONG_LONG , 0 , 0 , MPI_COMM_WORLD) ; 
-		MPI_Send(&time_sync_rdtscp, 1, MPI_UNSIGNED_LONG_LONG , 0 , 1 , MPI_COMM_WORLD) ;		
-
-
+	{	
+		for (uint64_t i = 1 ; i < max_iter ; i++){
+			nn = i ; 
+			measure_time(nn, &time_rdtsc , &time_sync_rdtscp)  ;
+			MPI_Send(&time_rdtsc, 1, MPI_UNSIGNED_LONG_LONG , 0 ,  2*i , MPI_COMM_WORLD) ; 
+			MPI_Send(&time_sync_rdtscp, 1, MPI_UNSIGNED_LONG_LONG , 0 , 2*i + 1 , MPI_COMM_WORLD) ;
+		}		
 			
 	}
 	
 	if (world_rank == 0){
-		unsigned long long tmp = 0 ; 
-	
-		unsigned long long rdtsc_mean = 0 ; 
-		unsigned long long sync_rdtscp_mean = 0 ; 		
-		unsigned long long rdtsc_mean_in = 0 ; 
-		unsigned long long sync_rdtscp_mean_in = 0 ; 
+		FILE *fp;
+		fp = fopen("time.txt" , "w+") ;
+		
+		
+		for (uint64_t i = 1 ; i < max_iter ; i++){
+			nn = i ; 
+			printf("\nvaleur de i : %llu\n\n", i);
+		  
+			unsigned long long tmp = 0 ; 
+		
+			unsigned long long rdtsc_mean = 0 ; 
+			unsigned long long sync_rdtscp_mean = 0 ; 		
+			unsigned long long rdtsc_mean_in = 0 ; 
+			unsigned long long sync_rdtscp_mean_in = 0 ; 
 
 
-		unsigned long long rdtsc_min = 1000000000000000 ; 
-		unsigned long long sync_rdtscp_min = 1000000000000000 ; 
-		unsigned long long rdtsc_min_in = 1000000000000000 ; 
-		unsigned long long sync_rdtscp_min_in = 1000000000000000 ; 	
+			unsigned long long rdtsc_min = 1000000000000000 ; 
+			unsigned long long sync_rdtscp_min = 1000000000000000 ; 
+			unsigned long long rdtsc_min_in = 1000000000000000 ; 
+			unsigned long long sync_rdtscp_min_in = 1000000000000000 ; 	
 
-		unsigned long long rdtsc_max_in = 0 ; 
-		unsigned long long sync_rdtscp_max_in = 0 ; 		
-		unsigned long long rdtsc_max = 0 ; 
-		unsigned long long sync_rdtscp_max = 0 ; 	
+			unsigned long long rdtsc_max_in = 0 ; 
+			unsigned long long sync_rdtscp_max_in = 0 ; 		
+			unsigned long long rdtsc_max = 0 ; 
+			unsigned long long sync_rdtscp_max = 0 ; 	
 
-		for (int i = 1 ; i < world_size ; i++){
-			MPI_Recv(&tmp , 1 , MPI_UNSIGNED_LONG_LONG , i , 0 ,  MPI_COMM_WORLD, MPI_STATUS_IGNORE) ; // for rdtsc
-			printf("     rdtsc timer : %llu with value %f\n", tmp, 0.0);
-			rdtsc_mean += tmp ; 
-			if (tmp < rdtsc_min){
-				rdtsc_min = tmp ; 
-			}
-			if (tmp > rdtsc_max){
-				rdtsc_max = tmp ; 
-			}
+			for (int j = 1 ; j < world_size ; j++){
 			
-			MPI_Recv(&tmp , 1 , MPI_UNSIGNED_LONG_LONG , i , 1 ,  MPI_COMM_WORLD, MPI_STATUS_IGNORE) ; // for sync_rdtscp
-			printf("sync rdtsc timer : %llu with value %f\n", tmp, 0.0);
-			sync_rdtscp_mean += tmp ; 			
-			if (tmp < sync_rdtscp_min){
-				sync_rdtscp_min = tmp ; 
-			}
-			if (tmp > sync_rdtscp_max){
-				sync_rdtscp_max = tmp ; 
+				MPI_Recv(&tmp , 1 , MPI_UNSIGNED_LONG_LONG , j , 2 * i ,  MPI_COMM_WORLD, MPI_STATUS_IGNORE) ; // for rdtsc
+				printf("     rdtsc timer : %llu with value %f\n", tmp, 0.0);
+				treatment(&rdtsc_mean, &rdtsc_min, &rdtsc_max, &tmp, world_size);
+		
+				MPI_Recv(&tmp , 1 , MPI_UNSIGNED_LONG_LONG , j , 2 * i + 1 ,  MPI_COMM_WORLD, MPI_STATUS_IGNORE) ; // for sync_rdtscp
+				printf("sync rdtsc timer : %llu with value %f\n", tmp, 0.0);
+				treatment(&sync_rdtscp_mean, &sync_rdtscp_min, &sync_rdtscp_max, &tmp, world_size);
+								
 			}
 			
+			printf("     rdtsc timer : %llu\n", rdtsc_mean);
+			printf("sync rdtsc timer : %llu\n", sync_rdtscp_mean);	
 			
+			printf("     rdtsc min : %llu\n", rdtsc_min);
+			printf("sync rdtsc min : %llu\n", sync_rdtscp_min);
 			
+			printf("     rdtsc max : %llu\n", rdtsc_max);
+			printf("sync rdtsc max : %llu\n", sync_rdtscp_max);
+			// write result in file
 			
-							
+			fprintf(fp, "%llu %llu %llu %llu %llu %llu %llu\n" , nn, rdtsc_mean , rdtsc_min , rdtsc_max , sync_rdtscp_mean , sync_rdtscp_min , sync_rdtscp_max);
 		}
-		rdtsc_mean = rdtsc_mean / (world_size - 1) ; 
-		sync_rdtscp_mean = sync_rdtscp_mean / (world_size - 1) ;
-		
-		printf("     rdtsc timer : %llu\n", rdtsc_mean);
-		printf("sync rdtsc timer : %llu\n", sync_rdtscp_mean);	
 
-		
-		printf("     rdtsc min : %llu\n", rdtsc_min);
-		printf("sync rdtsc min : %llu\n", sync_rdtscp_min);
-
-		
-		printf("     rdtsc max : %llu\n", rdtsc_max);
-		printf("sync rdtsc max : %llu\n", sync_rdtscp_max);				
-
-
-
+	fclose(fp);
 			
 	}
 
