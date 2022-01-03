@@ -11,36 +11,36 @@
 #include <mpi.h>
 
 
-typedef unsigned long long uint64_t ; 
+typedef unsigned long long uint64 ; 
 
 
 // rdtscp are from : 
 // https://gist.github.com/savanovich/f07eda9dba9300eb9ccf
 // rdtscp_before
 inline
-uint64_t sync_rdtscp_b(void)
+uint64 sync_rdtscp_b(void)
 {
-	uint64_t a, d; 
+	uint64 a, d; 
 	asm volatile("cpuid" ::: "%rax", "%rbx", "%rcx", "%rdx");
 	asm volatile("rdtsc" : "=a" (a), "=d" (d)); 
-	return ((uint64_t)a) | (((uint64_t)d) << 32); 
+	return ((uint64)a) | (((uint64)d) << 32); 
 }
 
 // rdtscp after
 inline
-uint64_t sync_rdtscp_a(void)
+uint64 sync_rdtscp_a(void)
 {
-	uint64_t a, d; 
+	uint64 a, d; 
 	asm volatile("rdtscp" : "=a" (a), "=d" (d)); 
 	asm volatile("cpuid" ::: "%rax", "%rbx", "%rcx", "%rdx");
-	return ((uint64_t)a) | (((uint64_t)d) << 32); 
+	return ((uint64)a) | (((uint64)d) << 32); 
 }
 
 
 inline
-uint64_t rdtsc(void)
+uint64 rdtsc(void)
 {
-  uint64_t a, d;
+  uint64 a, d;
  
   __asm__ volatile ("rdtsc" : "=a" (a), "=d" (d));
   
@@ -49,16 +49,16 @@ uint64_t rdtsc(void)
 
 
 
-void measure_time(uint64_t nn , uint64_t *time_rdtsc, uint64_t *time_sync_rdtscp){
+void measure_time(uint64 nn , uint64 *time_rdtsc, uint64 *time_sync_rdtscp){
 
 		double inc = 0.0 ;		
-		uint64_t start ; 
-		uint64_t end ; 
-		for (uint64_t i = 0 ; i < nn ; i++){
+		uint64 start ; 
+		uint64 end ; 
+		for (uint64 i = 0 ; i < nn ; i++){
 			inc = inc + 1.; 
 		}
 		start = rdtsc() ; 
-		for (uint64_t i = 0 ; i < nn ; i++){
+		for (uint64 i = 0 ; i < nn ; i++){
 			inc = inc + 1.; 
 		}
 		end = rdtsc() ; 
@@ -66,12 +66,12 @@ void measure_time(uint64_t nn , uint64_t *time_rdtsc, uint64_t *time_sync_rdtscp
 		printf("     rdtsc timer : %llu %f\n", (*time_rdtsc), inc);
 		inc = 0.0 ; 			
 		start = sync_rdtscp_b() ; 		
-		for (uint64_t i = 0 ; i < nn ; i++){
+		for (uint64 i = 0 ; i < nn ; i++){
 			inc = inc + 1.; 
 		}
 		end = sync_rdtscp_a() ; 
 		(*time_sync_rdtscp) = end - start ;
-		for (uint64_t i = 0 ; i < nn ; i++){
+		for (uint64 i = 0 ; i < nn ; i++){
 			inc = inc + 1.; 
 		}		
 		printf("     rdtsc timer : %llu %f\n", (*time_rdtsc), inc);		
@@ -79,7 +79,7 @@ void measure_time(uint64_t nn , uint64_t *time_rdtsc, uint64_t *time_sync_rdtscp
 
 }
 
-void treatment(uint64_t *rdtsc_mean, uint64_t *rdtsc_min, uint64_t *rdtsc_max, uint64_t *tmp, int world_size){
+void treatment(uint64 *rdtsc_mean, uint64 *rdtsc_min, uint64 *rdtsc_max, uint64 *tmp, int world_size){
 	(*rdtsc_mean) += (*tmp)/(world_size - 1) ; 
 	if ((*tmp) < (*rdtsc_min)){
 		(*rdtsc_min) = (*tmp) ; 
@@ -101,27 +101,27 @@ int main(int argc, char** argv){
 	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 	
 	double inc = 0.0 ;
-	uint64_t max_iter = 600; 
-	uint64_t nn ;  	
+	uint64 max_iter = 600; 
+	uint64 nn ;  	
 
 	//if (argc==2){
 	//	char *tmpstring ; 
 	//	nn = strtoul(argv[1], &tmpstring, 10);
 	//}	
 	
-	uint64_t start ; 
-	uint64_t end ; 
+	uint64 start ; 
+	uint64 end ; 
 	
 	
-	uint64_t time_rdtsc ; 
-	uint64_t time_sync_rdtscp ; 
+	uint64 time_rdtsc ; 
+	uint64 time_sync_rdtscp ; 
 
 	
 
 	
 	if (world_rank !=0 && world_rank < world_size)
 	{	
-		for (uint64_t i = 1 ; i < max_iter ; i++){
+		for (uint64 i = 1 ; i < max_iter ; i++){
 			nn = i ; 
 			measure_time(nn, &time_rdtsc , &time_sync_rdtscp)  ;
 			MPI_Send(&time_rdtsc, 1, MPI_UNSIGNED_LONG_LONG , 0 ,  2*i , MPI_COMM_WORLD) ; 
@@ -135,7 +135,7 @@ int main(int argc, char** argv){
 		fp = fopen("time.txt" , "w+") ;
 		
 		
-		for (uint64_t i = 1 ; i < max_iter ; i++){
+		for (uint64 i = 1 ; i < max_iter ; i++){
 			nn = i ; 
 			printf("\nvaleur de i : %llu\n\n", i);
 		  
