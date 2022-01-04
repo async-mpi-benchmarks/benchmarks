@@ -54,7 +54,7 @@ void measure_time(uint64 nn , uint64 *time_rdtsc, uint64 *time_sync_rdtscp){
 		double inc = 0.0 ;		
 		uint64 start ; 
 		uint64 end ; 
-		for (uint64 i = 0 ; i < nn ; i++){
+		for (uint64 i = 0 ; i < 1000000 ; i++){
 			inc = inc + 1.; 
 		}
 		start = rdtsc() ; 
@@ -63,15 +63,14 @@ void measure_time(uint64 nn , uint64 *time_rdtsc, uint64 *time_sync_rdtscp){
 		}
 		end = rdtsc() ; 
 		(*time_rdtsc) = end - start ; 		
-		printf("     rdtsc timer : %llu %f\n", (*time_rdtsc), inc);
-		inc = 0.0 ; 			
+		printf("     rdtsc timer : %llu %f\n", (*time_rdtsc), inc);; 			
 		start = sync_rdtscp_b() ; 		
 		for (uint64 i = 0 ; i < nn ; i++){
 			inc = inc + 1.; 
 		}
 		end = sync_rdtscp_a() ; 
 		(*time_sync_rdtscp) = end - start ;
-		for (uint64 i = 0 ; i < nn ; i++){
+		for (uint64 i = 0 ; i < 1000000 ; i++){
 			inc = inc + 1.; 
 		}		
 		printf("     rdtsc timer : %llu %f\n", (*time_rdtsc), inc);		
@@ -132,7 +131,7 @@ int main(int argc, char** argv){
 	
 	if (world_rank == 0){
 		FILE *fp;
-		fp = fopen("time.txt" , "w+") ;
+		fp = fopen("time.txt" , "w") ;
 		
 		
 		for (uint64 i = 1 ; i < max_iter ; i++){
