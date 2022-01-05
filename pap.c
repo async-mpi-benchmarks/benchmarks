@@ -229,7 +229,7 @@ int main(int argc, char** argv)
 		    perror("Error opening file");
 		} 
 		   
-		fprintf(SaveFile , "%llu %u %llu %llu %llu %llu %llu\n", size_array , world_size , burn_repetition , repetition , sync_time_recv, async_time_recv, full_async_time_recv )			;
+		fprintf(SaveFile , "%llu %u %llu %llu %llu %llu %llu %llu %llu %llu\n", size_array , world_size , burn_repetition , repetition ,  sync_time_send,  sync_time_recv, async_time_send, async_time_recv, full_async_time_send, full_async_time_recv )			;
 		fclose(SaveFile) ;		     	
 	} else if (world_rank < world_size ) {
 		////////////////////////
