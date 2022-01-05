@@ -86,7 +86,7 @@ void measure_time(uint64 nn , uint64 *time_rdtsc, uint64 *time_sync_rdtscp, uint
 			inc = inc + 1.; 
 		}
 		end = sync_rdtscp() ; 
-		(*time_sync_rdtscpba) = end - start ;
+		(*time_sync_rdtscp) = end - start ;
 		printf("sync rdtscpba timer : %llu %f\n", (*time_sync_rdtscpba), inc);
 		inc = 0.0 ;
 		for (uint64 i = 0 ; i < boost ; i++){
@@ -98,7 +98,7 @@ void measure_time(uint64 nn , uint64 *time_rdtsc, uint64 *time_sync_rdtscp, uint
 			inc = inc + 1.; 
 		}
 		end = sync_rdtscp_a() ; 
-		(*time_sync_rdtscp) = end - start ;		
+		(*time_sync_rdtscpba) = end - start ;		
 		printf("sync rdtscp timer : %llu %f\n", (*time_sync_rdtscp), inc);
 			
 		for (uint64 i = 0 ; i < boost ; i++){
@@ -132,7 +132,7 @@ int main(int argc, char** argv){
 	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 	
 	double inc = 0.0 ;
-	uint64 max_iter = 6000; 
+	uint64 max_iter = 1000; 
 	uint64 nn ;  	
 
 	//if (argc==2){
