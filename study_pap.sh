@@ -1,6 +1,17 @@
 rm time_pap.txt
-
-for ((i=1;i<100;i=i+1));
+((j = 1)) ; 
+((inc = 1)) ; 
+((lim = 10)) ; 
+((burn = 10)) ; 
+((iteration = 10)) ; 
+for ((i=1;i<60;i=i+1));
 	do
-		mpirun -np 2 ./pap $i 1000 100000 ; 
+		((j = j+ inc)) ;
+		echo $j ; 
+		mpirun -np 2 ./pap $j $burn $iteration ; 
+		if (( "$j" == "$lim"))
+		then
+			((inc = lim));
+			((lim = lim * 10));
+		fi
 done;
