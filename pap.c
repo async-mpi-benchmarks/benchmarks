@@ -131,7 +131,7 @@ int main(int argc, char** argv)
 		sync_time_recv = (end_recv - start_recv)/(repetition) ; 			
 		printf("%llu spend recv array\n" , sync_time_recv) ;
 	
-		sleep(1);
+		sleep(0.1);
 		///////////////////////////
 		/////////////// async part with direct wait
 		///////////////////////////
@@ -172,7 +172,7 @@ int main(int argc, char** argv)
 		printf("%llu spend recv array\n" , async_time_recv) ;	
 		
 
-		sleep(1);
+		sleep(0.1);
 		///////////////////////////
 		/////////////// async part
 		///////////////////////////
@@ -297,6 +297,7 @@ int main(int argc, char** argv)
 		
 	}	
 	MPI_Finalize();
+	return 0 ; 
 }
 
 
