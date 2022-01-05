@@ -170,7 +170,7 @@ int main(int argc, char** argv)
 		end_recv = rdtsc() ; 
 		async_time_recv = (end_recv - start_recv)/(repetition) ; 			
 		printf("%llu spend recv array\n" , async_time_recv) ;	
-	
+		
 
 		sleep(1);
 		///////////////////////////
@@ -222,7 +222,15 @@ int main(int argc, char** argv)
 		printf("%llu spend recv array\n" , full_async_time_recv) ;	
 	
 	
-	    	
+		// write at the end of a save file
+		FILE * SaveFile;
+		SaveFile = fopen("time_pap.txt", "a") ; 
+		if(SaveFile==NULL) {
+		    perror("Error opening file");
+		} 
+		   
+		fprintf(SaveFile , "%llu %u %llu %llu %llu %llu %llu\n", size_array , world_size , burn_repetition , repetition , sync_time_recv, async_time_recv, full_async_time_recv )			;
+		fclose(SaveFile) ;		     	
 	} else if (world_rank < world_size ) {
 		////////////////////////
 		////////////// sync part
