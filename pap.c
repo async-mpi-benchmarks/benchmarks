@@ -12,6 +12,7 @@ Protocol :
 #include <stdlib.h>
 #include <stdio.h>
 #include <mpi.h>
+#include <unistd.h>
 
 
 
@@ -25,8 +26,6 @@ unsigned long long rdtsc(void)
   
   return (d << 32) | a;
 }
-
-
 
 
 
@@ -80,25 +79,32 @@ int main(int argc, char** argv)
 
 	// allocate array for each process
 	double * array = malloc( size_array * sizeof(double)) ; 
-	MPI_Request *requests = malloc( world_size * sizeof(MPI_Request)) ; 
+
 
 	if (world_rank == 0) {
 		printf("The number of processes is %d\n\n" , world_size) ;
 		
+		MPI_Request requests[4 * world_size] ;
+		//MPI_Request *requests = malloc( 4 * world_size * sizeof(MPI_Request)) ; 		
+		//MPI_Status *statuss = malloc( 4 * world_size * sizeof(MPI_Status)) ; 		
+		
+		////////////////////////////
+		///////////////// sync part 
+		////////////////////////////
 		// init array values
 		for (unsigned long long i = 0 ; i < size_array ; i++){
 			array[i] = 2.124844854 ; 
 		}
 		
 		// timer
-		unsigned long long start_send, end_send , start_recv, end_recv, time_send, time_recv;
+		unsigned long long start_send, end_send , start_recv, end_recv;
+		unsigned long long sync_time_send, sync_time_recv , async_time_send, async_time_recv, full_async_time_send, full_async_time_recv;
 		
 		for (unsigned long long i = 0 ; i < burn_repetition ; i++){	
 			for (int j = 1 ; j < world_size ; j++){
 				MPI_Send(array, size_array, MPI_DOUBLE, j, j + i*world_size, MPI_COMM_WORLD);
 			}
 		}	
-		
 		start_send = rdtsc();			
 		for (unsigned long long i = 0 ; i < repetition ; i++){	
 			for (int j = 1 ; j < world_size ; j++){
@@ -106,8 +112,8 @@ int main(int argc, char** argv)
 			}
 		}			
 		end_send = rdtsc();
-		time_send = (end_send - start_send)/(repetition) ;		
-		printf("%llu spend send array\n" , time_send) ;	
+		sync_time_send = (end_send - start_send)/(repetition) ;		
+		printf("%llu spend send array\n" , sync_time_send) ;	
 		
 		// time spend in Send execution  			
 		for (unsigned long long i = 0 ; i < burn_repetition ; i++){	
@@ -122,11 +128,105 @@ int main(int argc, char** argv)
 			}
 		}	
 		end_recv = rdtsc() ; 
-		time_recv = (end_recv - start_recv)/(repetition) ; 			
-		printf("%llu spend recv array\n" , time_recv) ;
+		sync_time_recv = (end_recv - start_recv)/(repetition) ; 			
+		printf("%llu spend recv array\n" , sync_time_recv) ;
+	
+		sleep(1);
+		///////////////////////////
+		/////////////// async part with direct wait
+		///////////////////////////
+				
+		for (unsigned long long i = 0 ; i < burn_repetition ; i++){	
+			for (int j = 1 ; j < world_size ; j++){
+				MPI_Isend(array, size_array, MPI_DOUBLE, j, j + i*world_size, MPI_COMM_WORLD, &requests[j]);
+				MPI_Wait(&requests[j] , MPI_STATUS_IGNORE); 
+			}
+		}	
+		start_send = rdtsc();			
+		for (unsigned long long i = 0 ; i < repetition ; i++){	
+			for (int j = 1 ; j < world_size ; j++){
+				MPI_Isend(array, size_array, MPI_DOUBLE, j, j + i*world_size, MPI_COMM_WORLD, &requests[j + world_size]);
+				MPI_Wait(&requests[j +  world_size] , MPI_STATUS_IGNORE); 
+			}
+		}			
+		end_send = rdtsc();
+		async_time_send = (end_send - start_send)/(repetition) ;		
+		printf("%llu spend send array\n" , async_time_send) ;	
+		
+		// time spend in Send execution  			
+		for (unsigned long long i = 0 ; i < burn_repetition ; i++){	
+			for (int j = 1 ; j < world_size ; j++){
+				MPI_Irecv(array, size_array, MPI_DOUBLE, j, j + i*world_size, MPI_COMM_WORLD,  &requests[j + 2 * world_size]);
+				MPI_Wait(&requests[j + 2 * world_size] , MPI_STATUS_IGNORE); 
+			}
+		}
+		start_recv = rdtsc() ; 	
+		for (unsigned long long i = 0 ; i < repetition ; i++){	
+			for (int j = 1 ; j < world_size ; j++){
+				MPI_Irecv(array, size_array, MPI_DOUBLE, j, j + i*world_size, MPI_COMM_WORLD,  &requests[j + 3 * world_size]);
+				MPI_Wait(&requests[j + 3 * world_size] , MPI_STATUS_IGNORE); 
+			}
+		}	
+		end_recv = rdtsc() ; 
+		async_time_recv = (end_recv - start_recv)/(repetition) ; 			
+		printf("%llu spend recv array\n" , async_time_recv) ;	
+	
+
+		sleep(1);
+		///////////////////////////
+		/////////////// async part
+		///////////////////////////
+				
+		for (unsigned long long i = 0 ; i < burn_repetition ; i++){	
+			for (int j = 1 ; j < world_size ; j++){
+				MPI_Isend(array, size_array, MPI_DOUBLE, j, j + i*world_size, MPI_COMM_WORLD, &requests[j]);
+			}
+			for (int j = 1 ; j < world_size ; j++){
+				MPI_Wait(&requests[j] , MPI_STATUS_IGNORE); 
+			}
+		}	
+		start_send = rdtsc();			
+		for (unsigned long long i = 0 ; i < repetition ; i++){	
+			for (int j = 1 ; j < world_size ; j++){
+				MPI_Isend(array, size_array, MPI_DOUBLE, j, j + i*world_size, MPI_COMM_WORLD, &requests[j + world_size]);
+			}
+			for (int j = 1 ; j < world_size ; j++){
+				MPI_Wait(&requests[j +  world_size] , MPI_STATUS_IGNORE); 
+			}
+			
+		}			
+		end_send = rdtsc();
+		full_async_time_send = (end_send - start_send)/(repetition) ;		
+		printf("%llu spend send array\n" , full_async_time_send) ;	
+		
+		// time spend in Send execution  			
+		for (unsigned long long i = 0 ; i < burn_repetition ; i++){	
+			for (int j = 1 ; j < world_size ; j++){
+				MPI_Irecv(array, size_array, MPI_DOUBLE, j, j + i*world_size, MPI_COMM_WORLD,  &requests[j + 2 * world_size]);
+			}
+			for (int j = 1 ; j < world_size ; j++){
+				MPI_Wait(&requests[j + 2 * world_size] , MPI_STATUS_IGNORE); 
+			}
+		}
+		start_recv = rdtsc() ; 	
+		for (unsigned long long i = 0 ; i < repetition ; i++){	
+			for (int j = 1 ; j < world_size ; j++){
+				MPI_Irecv(array, size_array, MPI_DOUBLE, j, j + i*world_size, MPI_COMM_WORLD,  &requests[j + 3 * world_size]);
+			}
+			for (int j = 1 ; j < world_size ; j++){
+				MPI_Wait(&requests[j + 3 * world_size] , MPI_STATUS_IGNORE); 
+			}
+		}	
+		end_recv = rdtsc() ; 
+		full_async_time_recv = (end_recv - start_recv)/(repetition) ; 			
+		printf("%llu spend recv array\n" , full_async_time_recv) ;	
+	
+	
 	    	
 	} else if (world_rank < world_size ) {
-
+		////////////////////////
+		////////////// sync part
+		////////////////////////
 		for (unsigned long long i = 0 ; i < burn_repetition ; i++){	
 				MPI_Recv(array, size_array, MPI_DOUBLE, 0, world_rank + i*world_size, MPI_COMM_WORLD, MPI_STATUS_IGNORE);				
 		}
@@ -139,6 +239,54 @@ int main(int argc, char** argv)
 		for (unsigned long long i = 0 ; i < repetition ; i++){	
 				MPI_Send(array, size_array, MPI_DOUBLE, 0, world_rank + i*world_size, MPI_COMM_WORLD);				
 		}
+		////////////////////////
+		//////////// async part with direct wait
+		////////////////////////
+		
+		MPI_Request request0 , request1, request2, request3 ; 
+		//MPI_Request statuss0 , statuss1, statuss2, statuss3 ; 
+
+		
+		for (unsigned long long i = 0 ; i < burn_repetition ; i++){	
+				MPI_Irecv(array, size_array, MPI_DOUBLE, 0, world_rank + i*world_size, MPI_COMM_WORLD, &request0);
+				MPI_Wait(&request0 , MPI_STATUS_IGNORE); 				
+		}
+		for (unsigned long long i = 0 ; i < repetition ; i++){	
+				MPI_Irecv(array, size_array, MPI_DOUBLE, 0, world_rank + i*world_size, MPI_COMM_WORLD, &request1);	
+				MPI_Wait(&request1 , MPI_STATUS_IGNORE); 		
+		}
+		for (unsigned long long i = 0 ; i < burn_repetition ; i++){	
+				MPI_Isend(array, size_array, MPI_DOUBLE, 0, world_rank + i*world_size, MPI_COMM_WORLD, &request2);
+				MPI_Wait(&request2 , MPI_STATUS_IGNORE); 			
+		} 	
+		for (unsigned long long i = 0 ; i < repetition ; i++){	
+				MPI_Isend(array, size_array, MPI_DOUBLE, 0, world_rank + i*world_size, MPI_COMM_WORLD, &request3);
+				MPI_Wait(&request3 , MPI_STATUS_IGNORE); 			
+		}
+	
+		////////////////////////
+		//////////// async part
+		////////////////////////
+
+		for (unsigned long long i = 0 ; i < burn_repetition ; i++){	
+				MPI_Irecv(array, size_array, MPI_DOUBLE, 0, world_rank + i*world_size, MPI_COMM_WORLD, &request0);
+				MPI_Wait(&request0 , MPI_STATUS_IGNORE); 				
+		}
+		
+		for (unsigned long long i = 0 ; i < repetition ; i++){	
+				MPI_Irecv(array, size_array, MPI_DOUBLE, 0, world_rank + i*world_size, MPI_COMM_WORLD, &request1);	
+				MPI_Wait(&request1 , MPI_STATUS_IGNORE); 		
+		}
+		for (unsigned long long i = 0 ; i < burn_repetition ; i++){	
+				MPI_Isend(array, size_array, MPI_DOUBLE, 0, world_rank + i*world_size, MPI_COMM_WORLD, &request2);
+				MPI_Wait(&request2 , MPI_STATUS_IGNORE); 			
+		} 	
+		for (unsigned long long i = 0 ; i < repetition ; i++){	
+				MPI_Isend(array, size_array, MPI_DOUBLE, 0, world_rank + i*world_size, MPI_COMM_WORLD, &request3);
+				MPI_Wait(&request3 , MPI_STATUS_IGNORE); 			
+		}	
+	
+		
 	}	
 	MPI_Finalize();
 }
