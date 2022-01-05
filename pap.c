@@ -61,7 +61,7 @@ int main(int argc, char** argv)
 		}
 		
 		printf("size of array : %llu \n", size_array) ;
-		printf("burn repetition of sending process: %llu \n", repetition) ;
+		printf("burn repetition of sending process: %llu \n", burn_repetition) ;
 		printf("repetition of sending process: %llu \n", repetition) ;
 
 			
