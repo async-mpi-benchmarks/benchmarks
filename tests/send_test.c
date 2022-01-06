@@ -41,8 +41,7 @@ int main(int argc, char** argv){
 	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 	
-	MPI_Status status ;	
-	MPI_Request request = MPI_REQUEST_NULL ;
+
 			
 	int size_array = 1000000 ; 
 	float * array = malloc(size_array * sizeof(float)) ; 
@@ -66,47 +65,52 @@ int main(int argc, char** argv){
 	
 	unsigned long long start, end_test, end_wait ; 
 	unsigned long long total_wait , total_test ; 	
-	int flag  = 0; 
+	int flag = 0 ; 
+
 	MPI_Barrier(MPI_COMM_WORLD);
-	start = rdtsc() ; 	
-	
+
 	// in a async way
 	if (world_rank == 0){
 		printf("\nSending array values to processes in a async way ..\n\n") ; 
 		// send value to every other processes
 
+
+		MPI_Request *requests ;
+		requests = malloc( (world_size - 1 ) * sizeof(MPI_Request) ) ;  
+		for (int i = 0 ; i < world_size - 1 ; i++)
+		{
+			requests[i] = MPI_REQUEST_NULL ; 
+		}
+
+
+		MPI_Barrier(MPI_COMM_WORLD);
+		start = rdtsc() ; 	
 		for (int i = 1 ; i < world_size ; i++){
-			MPI_Isend(array, size_array , MPI_FLOAT , i , i , MPI_COMM_WORLD, &request) ;  
+			MPI_Isend(array, size_array , MPI_FLOAT , i , i , MPI_COMM_WORLD, &requests[i-1]) ;  
 		}
 
-		while (flag == 0){
-			MPI_Test(&request , &flag,  &status) ;   
-		}
-		end_test = rdtsc() ; 
-
-		MPI_Wait(&request , &status) ;   
-
+		MPI_Waitall(world_size- 1 , requests , MPI_STATUS_IGNORE) ;  
 		end_wait = rdtsc() ; 
-		total_test = end_test - start ;		
 		total_wait = end_wait - start ; 	
-		printf("%llu time test 0\n" , total_test) ;
-		printf("%llu time_wait 0\n" , total_wait) ;
+		printf("%llu time_wait from process 0\n" , total_wait) ;
 		printf("If the two previous times are similars, then the MPI_Test function works fine\n");			
 	}
 	else if (world_rank < world_size){
- 	
+		MPI_Request request = MPI_REQUEST_NULL ; 
+		MPI_Barrier(MPI_COMM_WORLD);
+		start = rdtsc() ; 	
 		MPI_Irecv(array , size_array , MPI_FLOAT , 0 , world_rank , MPI_COMM_WORLD , &request ) ;
 		while (flag == 0){
-			MPI_Test(&request , &flag,  &status) ;   
+			MPI_Test(&request , &flag,  MPI_STATUS_IGNORE) ;   
 		}	
 		end_test = rdtsc() ; 	
-		MPI_Wait(&request , &status) ; 
+		MPI_Wait(&request , MPI_STATUS_IGNORE) ; 
 		end_wait = rdtsc() ; 	
 		
 		total_test = end_test - start ;		
 		total_wait = end_wait - start ; 	
-		printf("%llu time test 1\n" , total_test) ;
-		printf("%llu time_wait 1\n" , total_wait) ;
+		printf("%llu time test from process %d\n" , total_test, world_rank) ;
+		printf("%llu time_wait from process %d\n" , total_wait, world_rank) ;
 		
 		
 	}		
