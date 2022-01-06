@@ -80,8 +80,8 @@ int main(int argc, char** argv){
 
 
 		MPI_Request *requests ;
-		requests = malloc( (world_size - 1 ) * sizeof(MPI_Request) ) ;  
-		for (int i = 0 ; i < world_size - 1 ; i++)
+		requests = malloc( (world_size - 3 ) * sizeof(MPI_Request) ) ;  
+		for (int i = 0 ; i < world_size - 3 ; i++)
 		{
 			requests[i] = MPI_REQUEST_NULL ; 
 		}
@@ -89,11 +89,11 @@ int main(int argc, char** argv){
 
 		MPI_Barrier(MPI_COMM_WORLD);
 		//start = rdtsc() ; 	
-		for (int i = 1 ; i < world_size ; i++){
+		for (int i = 1 ; i < world_size - 2 ; i++){
 			MPI_Isend(array, size_array , MPI_FLOAT , i , i , MPI_COMM_WORLD, &requests[i-1]) ;  
 		}
 
-		MPI_Waitall(world_size - 1 , requests , MPI_STATUS_IGNORE) ;  
+		MPI_Waitall(world_size - 3 , requests , MPI_STATUS_IGNORE) ;  
 		//end_wait = rdtsc() ; 
 		//total_wait = end_wait - start ; 	
 		//printf("%llu time_wait from process 0\n" , total_wait) ;
@@ -102,7 +102,7 @@ int main(int argc, char** argv){
 		MPI_Barrier(MPI_COMM_WORLD);		
 				
 	}
-	else if (world_rank < world_size){
+	else if (world_rank < world_size - 2){
 		MPI_Request request = MPI_REQUEST_NULL ; 
 		unsigned long long i = 0 ; 
 		unsigned long long i2 = 0 ; 
@@ -171,7 +171,43 @@ int main(int argc, char** argv){
 		printf("    %llu time_total     from process %d\n" , time_total, world_rank) ;		
 		printf("      overlap %lf  from process %d\n" , recouvrement, world_rank) ;
 		MPI_Barrier(MPI_COMM_WORLD);		
-	}		
+	}	
+	else if (world_rank == world_size - 2){
+	//  time to compute reference
+	unsigned long long i = 0 ; 
+	double compute = 0.0 ; 
+	MPI_Barrier(MPI_COMM_WORLD);
+		
+	/////////////////////////////////////////////////////////////////
+	// compute & tests many times. 
+	// exit : 
+	//	- if loop made more than loop_max_iteration additions. 
+	//		thus, end_test is the computation time
+	//	or
+	//	- if the MPI transaction is finished.
+	//		thus, end_test is the MPI transaction time, and
+	//		computation have to continue in a normal time
+	/////////////////////////////////////////////////////////////////
+	start_compute = rdtsc() ;		
+	while (i < loop_max_iteration){
+		for (unsigned long long  j = 0 ; j < loop_iteration ; j++){
+			compute += 0.054398 ; // float operation
+			i += 1 ; 	      // int operation
+		}
+		//printf("%d\n", flag) ;    
+	}	
+	end_test = rdtsc() ;
+
+	time_total = end_test - start_compute ; 
+	printf("  reference computed values from process %d are %llu and %f\n" , world_rank , i, compute) ;	 		
+	printf("    %llu reference time_compute from process %d\n" , time_total, world_rank) ;
+	MPI_Barrier(MPI_COMM_WORLD);
+	}	
+	else if (world_rank == world_size - 1 ){
+	MPI_Barrier(MPI_COMM_WORLD);
+	MPI_Barrier(MPI_COMM_WORLD);	
+		
+	}
 		
 	
 	MPI_Finalize();
