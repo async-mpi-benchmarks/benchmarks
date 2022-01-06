@@ -2,8 +2,8 @@ set xlabel 'Amount of iteration'
 set ylabel 'Tics measured'
 
 
-
-set term png size 4000,4000
+set yrange [0:6000]
+set term png size 1000,1000
 set output "plot_time_xeon_phi.png"
 set grid 
-plot 'time_xeon_phi.txt' using 1:2 title "rdtsc" pointtype 4 pointsize 3.0 lt rgb "blue", 'time_xeon_phi.txt' using 1:5  title "sync-rdtscp" pointtype 12 pointsize 3.0 lt rgb "red"
+plot 'time.txt' using 1:2 title "rdtsc" , 'time.txt' using 1:5  title "sync-rdtscpba", 'time.txt' using 1:8  title "shifted rdtscp" , 'time.txt' using 1:11  title "fenced rdtscp"
