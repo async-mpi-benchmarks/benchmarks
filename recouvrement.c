@@ -45,7 +45,7 @@ int main(int argc, char** argv){
 
 			
 	int size_array = 10000000 ; 
-	unsigned long long  loop_max_iteration = 1000000000 ;
+	unsigned long long  loop_max_iteration = 200000000 ;
 	unsigned long long  loop_iteration = loop_max_iteration/10 ; 
 	float * array = malloc(size_array * sizeof(float)) ; 
 	
@@ -69,6 +69,7 @@ int main(int argc, char** argv){
 	unsigned long long start_mpi, start_compute, end_test, end_wait, end_last_loop; 
 	unsigned long long time_compute , time_mpi, time_total ; 
 	int flag = 0 ; 
+	double recouvrement = 0.0 ; 
 
 	MPI_Barrier(MPI_COMM_WORLD);
 
@@ -156,10 +157,19 @@ int main(int argc, char** argv){
 			printf("MPI transaction faster for process %d\n", world_rank);
 		}
 		time_total = end_last_loop - start_mpi;
+		
+		if (time_mpi > time_compute){
+			recouvrement = 1.0 ; 
+		}
+		else if(time_compute != 0){
+			recouvrement = (double)time_mpi / (double)time_compute ; 
+		}
+		
 		printf("  computed values from process %d are %llu and %f\n" , world_rank , i, compute) ;		 		
 		printf("    %llu time_compute from process %d\n" , time_compute, world_rank) ;
 		printf("    %llu time_mpi     from process %d\n" , time_mpi, world_rank) ;
 		printf("    %llu time_total     from process %d\n" , time_total, world_rank) ;		
+		printf("      overlap %lf  from process %d\n" , recouvrement, world_rank) ;
 		MPI_Barrier(MPI_COMM_WORLD);		
 	}		
 		
