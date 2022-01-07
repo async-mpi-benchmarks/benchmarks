@@ -66,9 +66,9 @@ int main(int argc, char** argv){
 
 
 	
-	unsigned long long start_mpi, start_compute, end_test, end_wait, end_last_loop; 
-	unsigned long long time_compute , time_mpi, time_total ; 
-	int flag = 0 ; 
+	unsigned long long stop_comm, start_compute, stop_compute, start_total, stop_total; 
+	unsigned long long time_compute, time_mpi, time_total ; 
+	int flag, old_flag, dflag = 0 ; 
 	double recouvrement = 0.0 ; 
 
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -105,12 +105,10 @@ int main(int argc, char** argv){
 	else if (world_rank < world_size - 2){
 		MPI_Request request = MPI_REQUEST_NULL ; 
 		unsigned long long i = 0 ; 
-		unsigned long long i2 = 0 ; 
 		double compute = 0.0 ; 
 		MPI_Barrier(MPI_COMM_WORLD);
 		
-		start_mpi = rdtsc() ; 			
-		MPI_Irecv(array , size_array , MPI_FLOAT , 0 , world_rank , MPI_COMM_WORLD , &request ) ;	
+	
 	
 		/////////////////////////////////////////////////////////////////
 		// compute & tests many times. 
@@ -122,54 +120,67 @@ int main(int argc, char** argv){
 		//		thus, end_test is the MPI transaction time, and
 		//		computation have to continue in a normal time
 		/////////////////////////////////////////////////////////////////
+		
+		/*
+
+		while (i < loop_max_iteration) {
+		    stop_comm += rdtsc()*dflag;        // mesure d'horloge si comm pas terminée
+		  for (int j = 0; j < loop_iteration; j++) {
+		    compute += 0.054398;        // FP operation
+		    i += 1;                     // INT operation
+		  }
+		  old_flag = flag
+		  MPI_Test(&request, &flag);     // test non-bloquant de complétion de la transaction MPI
+		  dflag = flag - old_flag
+		}
+		stop_compute = rdtsc();         // mesure d’horloge
+		MPI_Wait();                     // barriere sur la reception MPI
+		if (flag == 0)
+		  stop_comm = rdtsc()           // mesure d’horloge
+		stop_total = rdtsc();           // mesure d’horloge	
+		*/	
+		stop_comm = 0 ; 
+		start_total = rdtsc() ; 			
+		MPI_Irecv(array , size_array , MPI_FLOAT , 0 , world_rank , MPI_COMM_WORLD , &request ) ;		
 		start_compute = rdtsc() ;		
-		while ( (flag == 0) && (i < loop_max_iteration)  ){
+		while (i < loop_max_iteration){
+			stop_comm += rdtsc()*dflag ; 
 			for (unsigned long long  j = 0 ; j < loop_iteration ; j++){
 				compute += 0.054398 ; // float operation
 				i += 1 ; 	      // int operation
 			}
+			old_flag = flag ; 
 			MPI_Test(&request , &flag,  MPI_STATUS_IGNORE) ;
-			//printf("%d\n", flag) ;    
+			dflag = flag - old_flag ;   
 		}	
-		end_test = rdtsc() ;
+		stop_compute = rdtsc() ;
 		MPI_Wait(&request , MPI_STATUS_IGNORE) ; 
-		end_wait = rdtsc() ; 
-		i2 = i ; 	
-		while (i < loop_max_iteration){
-			for (int j = 0 ; j < loop_iteration ; j++){
-				compute += 0.054398 ; // float operation
-				i += 1 ; 	// int operation
-			}  
-		}			
-		
-		end_last_loop = rdtsc() ;		
-		
-		if (i2 >= loop_max_iteration){
-			// first loop ended due to loop_max_iteration
-			time_compute = end_test - start_compute ; 
-			time_mpi = end_wait - start_mpi ;
-			printf("computation faster for process %d\n", world_rank);
+		if (flag == 0){
+			stop_comm = rdtsc();
 		}
-		else{
-			// first loop ended du to finished MPI transaction
-			time_compute = end_last_loop - start_compute ; 
-			time_mpi = end_wait - start_mpi ; 
-			printf("MPI transaction faster for process %d\n", world_rank);
-		}
-		time_total = end_last_loop - start_mpi;
+		stop_total = rdtsc() ;
 		
-		if (time_mpi > time_compute){
-			recouvrement = 1.0 ; 
-		}
-		else if(time_compute != 0){
-			recouvrement = (double)time_mpi / (double)time_compute ; 
+		time_compute = stop_compute - start_compute;
+		time_mpi = stop_comm - start_total ; 
+		time_total = stop_total - start_total ;
+		
+		if (time_compute > time_mpi){
+			printf("transfert faster for process %d\n", world_rank);			
 		}
 		
-		printf("  computed values from process %d are %llu and %f\n" , world_rank , i, compute) ;		 		
-		printf("    %llu time_compute from process %d\n" , time_compute, world_rank) ;
-		printf("    %llu time_mpi     from process %d\n" , time_mpi, world_rank) ;
-		printf("    %llu time_total     from process %d\n" , time_total, world_rank) ;		
-		printf("      overlap %lf  from process %d\n" , recouvrement, world_rank) ;
+		if (time_compute <= time_mpi){
+			printf("computation faster for process %d\n", world_rank);			
+		}
+
+
+		recouvrement = (time_mpi + time_compute - time_total) / (time_mpi) ; 
+		
+		 		
+		printf("   time_compute %llu from process %d\n" , time_compute, world_rank) ;
+		printf("   time_mpi     %llu from process %d\n" , time_mpi, world_rank) ;
+		printf("   time_total   %llu from process %d\n" , time_total, world_rank) ;		
+		printf("overlap %lf  from process %d\n" , recouvrement, world_rank) ;
+		printf("       computed values from process %d are %llu and %f\n" , world_rank , i, compute) ;		
 		MPI_Barrier(MPI_COMM_WORLD);		
 	}	
 	else if (world_rank == world_size - 2){
@@ -196,9 +207,9 @@ int main(int argc, char** argv){
 		}
 		//printf("%d\n", flag) ;    
 	}	
-	end_test = rdtsc() ;
+	stop_compute = rdtsc() ;
 
-	time_total = end_test - start_compute ; 
+	time_total = stop_compute - start_compute ; 
 	printf("  reference computed values from process %d are %llu and %f\n" , world_rank , i, compute) ;	 		
 	printf("    %llu reference time_compute from process %d\n" , time_total, world_rank) ;
 	MPI_Barrier(MPI_COMM_WORLD);
