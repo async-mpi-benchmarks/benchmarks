@@ -45,8 +45,8 @@ int main(int argc, char** argv){
 
 			
 	int size_array = 10000000 ; 
-	unsigned long long  loop_max_iteration = 200000000 ;
-	unsigned long long  loop_iteration = loop_max_iteration/10 ; 
+	unsigned long long  loop_max_iteration = 50000000 ;
+	unsigned long long  loop_iteration = loop_max_iteration/200 ; 
 	float * array = malloc(size_array * sizeof(float)) ; 
 	
 	
