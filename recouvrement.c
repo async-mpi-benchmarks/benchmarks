@@ -159,7 +159,7 @@ int main(int argc, char** argv){
 		}
 		time_total = end_last_loop - start_mpi;
 
-		recouvrement = (time_mpi + time_compute - time_total) / (time_mpi) ; 
+		recouvrement = ((double)time_mpi + (double)time_compute - (double)time_total) / ((double)time_mpi) ; 
 		
 		 		
 		printf("   time_compute %llu from process %d\n" , time_compute, world_rank) ;
