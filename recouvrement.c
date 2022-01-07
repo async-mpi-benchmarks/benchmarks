@@ -101,6 +101,11 @@ int main(int argc, char** argv){
 		//printf("If the two times for a specific process are similars, then the MPI_Test function works fine\n");	
 		
 		MPI_Barrier(MPI_COMM_WORLD);		
+		
+		MPI_Request request_reference  = MPI_REQUEST_NULL ; 
+		MPI_Isend(array, size_array , MPI_FLOAT , world_size - 1 , world_size - 1 , MPI_COMM_WORLD, &request_reference) ;  
+		MPI_Wait(&request_reference, MPI_STATUS_IGNORE) ;
+		
 				
 	}
 	else if (world_rank < world_size - 2){
@@ -175,6 +180,7 @@ int main(int argc, char** argv){
 	double compute = 0.0 ; 
 	MPI_Barrier(MPI_COMM_WORLD);
 		
+		
 	/////////////////////////////////////////////////////////////////
 	// compute & tests many times. 
 	// exit : 
@@ -202,7 +208,14 @@ int main(int argc, char** argv){
 	}	
 	else if (world_rank == world_size - 1 ){
 	MPI_Barrier(MPI_COMM_WORLD);
-	MPI_Barrier(MPI_COMM_WORLD);	
+	MPI_Barrier(MPI_COMM_WORLD);
+	start_mpi = rdtsc() ; 
+	MPI_Request request_reference  = MPI_REQUEST_NULL ; 
+	MPI_Irecv(array , size_array , MPI_FLOAT , 0 , world_rank , MPI_COMM_WORLD , &request_reference ) ;	
+	MPI_Wait(&request_reference, MPI_STATUS_IGNORE);
+	end_wait = rdtsc() ;
+	time_mpi = end_wait - start_mpi ;
+	printf("    %llu reference time_mpi from process %d\n" , time_mpi, world_rank) ;	
 		
 	}
 		
