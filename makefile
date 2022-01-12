@@ -1,7 +1,7 @@
 CC = mpicc 
 CFLAGS = -O3 -Wall
 
-all: 1 pap recouvrement
+all: 1 pap recouvrement hybride
 
 1 : 1.c
 	${CC} ${CFLAGS} -march=native -mtune=native -funroll-loops -finline-functions -fpeel-loops -ftree-vectorize -ftree-loop-vectorize $^ -o $@  -lm -fopenmp
@@ -13,10 +13,11 @@ pap : pap.c
 recouvrement : recouvrement.c
 	${CC} ${CFLAGS} -march=native -mtune=native -funroll-loops -finline-functions -fpeel-loops -ftree-vectorize -ftree-loop-vectorize $^ -o $@  -lm -fopenmp
 		
-	
+hybride : hybride.c
+	${CC} ${CFLAGS} -march=native -mtune=native -funroll-loops -finline-functions -fpeel-loops -ftree-vectorize -ftree-loop-vectorize $^ -o $@  -lm -fopenmp	
 
 clean :	
-	rm 1 pap recouvrement
+	rm 1 pap recouvrement hybride
 	
 run : 
 	mpirun ./1 &&  mpirun -np 2 pap && mpirun -np 2 ./recouvrememt 
